@@ -1,12 +1,18 @@
 # Validation record
 
-Prepared on 9 October 2026.
+Verified on 9 October 2026.
 
-- Five frontend contact-logic tests passed in an isolated JavaScript runtime with a mocked timeout signal.
-- JSON configuration files parsed successfully.
-- Source review corrected the SQL message column to NVARCHAR(MAX), moved static file middleware before routing, and aligned the frontend proxy with backend port 5080.
-- A full React build, C# compilation, backend test run, browser visual review and real SQL/Gmail submission were not possible in the authoring session because the local Windows runtime failed with a sandbox setup refresh error.
-- The repository includes a GitHub Actions build for full compilation and automated tests once pushed. A green workflow is required before treating the full build as verified.
-- Actual Gmail delivery still requires private server settings and a live SQL Server database.
+[GitHub Actions build](https://github.com/Aakash-0506/aakash-portfolio/actions/runs/37959159346) passed for source commit `7a04dda35a1b8e9cd2d846e0d1f0bf0a3e7a278f`.
 
-Unit checks cover invalid input, trimmed API payloads, saved-but-unsent handling, HTTP failures/malformed responses and a disconnected API.
+- React production build: passed with Vite.
+- Frontend contact-logic tests: 5 passed, 0 failed.
+- ASP.NET Core compilation and publish: passed on .NET 10.
+- Backend integration tests: 14 passed, 0 failed.
+- Published application: uploaded as the workflow artifact `aakash-portfolio`.
+- JSON configuration files: parsed successfully.
+
+The integration tests use fake storage and email services. They cover input validation, oversized submissions, spam rejection, store-before-email ordering, storage and email failures, rate limits, liveness and static routing.
+
+Browser visual review and a real SQL/Gmail submission remain unverified because the authoring machine's local Windows runtime could not start. Actual contact delivery requires SQL Server plus private server-side Gmail settings; no credentials are committed.
+
+After configuring a host, send a real contact message and confirm both the SQL row and the email in `aakashgarude@gmail.com`, including Spam. SMTP acceptance does not guarantee inbox placement.
