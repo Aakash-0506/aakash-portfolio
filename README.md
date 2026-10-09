@@ -17,19 +17,19 @@ The design uses a warm light theme, a dark theme, responsive layouts and accessi
 ## How contact messages work
 
 1. React validates the visitor's form.
-2. `POST /api/contact` validates again, checks the hidden spam field and limits each IP address to five attempts per ten minutes.
+2. `POST /api/contact` validates again, checks the hidden spam field and limits each IP address to five attempts per ten minutes. An overall budget of 30 attempts per minute and a four-request concurrency cap protect SQL and SMTP resources.
 3. The API saves the message in SQL Server using parameterized queries.
 4. It sends a plain-text email to `aakashgarude@gmail.com`. Replying to the email addresses the visitor through the Reply-To header.
 
 | Status | Meaning shown to the visitor |
 | --- | --- |
 | 200 | Message saved and SMTP accepted the email. |
-| 202 | Message saved, but email delivery failed; the visitor is advised to email directly. |
+| 202 | Message saved, but email delivery could not be confirmed; the visitor is advised to email directly. |
 | 400 | Invalid submission or spam field filled. |
 | 429 | Too many attempts. |
 | 503 | Message could not be saved. |
 
-A 202 response does not schedule a retry. Failed email attempts are logged with the stored message ID. SMTP acceptance cannot guarantee inbox placement.
+A 202 response does not schedule a retry. Unconfirmed email attempts are logged with the stored message ID. SMTP acceptance cannot guarantee inbox placement.
 
 ## Run on Windows
 
@@ -63,7 +63,7 @@ Start React in a second terminal:
 
 ```powershell
 cd client
-npm install
+npm ci
 npm run dev
 ```
 
@@ -108,9 +108,9 @@ cd ..
 dotnet test server/Portfolio.Api.Tests/Portfolio.Api.Tests.csproj --configuration Release
 ```
 
-GitHub Actions runs the same build and uploads the published app as an artifact. The tests cover validation, spam rejection, store-before-email ordering, storage failures, email failures, rate limits and static routing. Fakes ensure the tests send no real emails and need no live database.
+GitHub Actions runs the same build, checks dependency vulnerabilities, and exercises the production frontend in desktop Chromium, mobile Chromium and Firefox. It uploads the published app and browser report as artifacts. The tests cover validation, spam rejection, store-before-email ordering, storage failures, email failures, rate limits and static routing. Fakes ensure the tests send no real emails and need no live database.
 
-The first `npm install` generates `client/package-lock.json`. Commit it after reviewing the resolved versions.
+`client/package-lock.json` is committed. Use `npm ci` for reproducible installs. CI runs npm audit and treats NuGet audit warnings, including audit-source failures, as errors.
 
 ## Deploy
 
@@ -143,3 +143,24 @@ Before sharing the site, send a real message, confirm the SQL row, and check the
 - Database schema: `database/schema.sql`
 
 No CV download is included because the supplied PDF was not readable in the authoring session. Education and certifications can be added when confirmed.
+
+## Browser and security checks
+
+After building the application:
+
+```powershell
+cd client
+npx playwright install chromium firefox
+npm run test:e2e
+npm audit --audit-level=low
+```
+
+On Linux, use `npx playwright install --with-deps chromium firefox` to install the required system libraries.
+
+Browser tests cover narrow-screen layout, keyboard navigation, both themes, automated WCAG checks, project expansion, contact success/pending/errors, blocked storage, malformed responses and oversized request bodies. They start the production ASP.NET Core server locally; mocked responses cover successful email states without sending real mail.
+
+The production API supplies a Content Security Policy, denies framing, disables unused browser permissions and uses HSTS for HTTPS requests. The SPA fallback excludes API paths so unsupported media types retain the correct 415 response.
+
+Real Gmail inbox delivery is not part of automated checks because no account credentials are available.
+
+The separate SQL smoke job starts an ephemeral SQL Server container with a generated, masked test password. It executes the real schema, verifies Unicode and SQL-shaped text are stored literally, and confirms a 5,000-character message is preserved when email notification fails. The SQL container is removed after the job. Ordinary local tests skip this one check unless `PORTFOLIO_TEST_SQL` is configured.

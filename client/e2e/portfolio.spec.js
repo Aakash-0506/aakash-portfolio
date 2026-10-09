@@ -20,8 +20,12 @@ test('layout fits desktop and 320px screens; links and headings are usable', asy
   const originalViewport = page.viewportSize();
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (overflow > 1) console.log('OVERFLOW_' + width, await page.evaluate(() =>
+      [...document.querySelectorAll('body *')].map(el => ({ tag: el.tagName, className: String(el.className), right: el.getBoundingClientRect().right, width: el.getBoundingClientRect().width }))
+        .filter(el => el.right > document.documentElement.clientWidth + 1 && el.width > 0).slice(0, 20)));
     expect(overflow, 'horizontal overflow at width ' + width).toBeLessThanOrEqual(1);
+    expect(await page.evaluate(() => document.documentElement.clientWidth)).toBe(width);
     await expect(page.getByRole('button', { name: 'Send message' })).toBeVisible();
   }
   await page.setViewportSize(originalViewport);
@@ -75,7 +79,7 @@ test('theme still works when browser storage is blocked', async ({ page }) => {
 test('project details can be expanded and collapsed', async ({ page }) => {
   const button = page.getByRole('button', { name: 'Project details' });
   await button.click();
-  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Hide details' })).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByRole('heading', { name: 'How it fits together' })).toBeVisible();
   await page.getByRole('button', { name: 'Hide details' }).click();
   await expect(page.locator('#project-details')).toHaveCount(0);
