@@ -31,6 +31,14 @@ function ContactForm() {
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
   const formRef = useRef(null);
+  const focusField = useRef(null);
+
+  useEffect(() => {
+    if (!busy && focusField.current) {
+      formRef.current?.elements.namedItem(focusField.current)?.focus();
+      focusField.current = null;
+    }
+  }, [busy, errors]);
 
   async function submit(event) {
     event.preventDefault();
@@ -39,7 +47,7 @@ function ContactForm() {
     setErrors(validation);
     setStatus(null);
     if (Object.keys(validation).length) {
-      formRef.current?.elements.namedItem(Object.keys(validation)[0])?.focus();
+      focusField.current = Object.keys(validation)[0];
       return;
     }
     sending.current = true;
@@ -49,6 +57,10 @@ function ContactForm() {
       setStatus(result);
       setForm({ ...EMPTY_FORM });
     } catch (error) {
+      if (error.fieldErrors && Object.keys(error.fieldErrors).length) {
+        setErrors(error.fieldErrors);
+        focusField.current = Object.keys(error.fieldErrors)[0];
+      }
       const text = error.name === 'TimeoutError'
         ? 'The request timed out and may still be processing. Please email me directly before resending.'
         : error instanceof TypeError ? 'Could not connect. Please email aakashgarude@gmail.com directly.' : error.message || 'Could not connect. Please email me directly.';
@@ -59,7 +71,11 @@ function ContactForm() {
     }
   }
 
-  const update = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+  const update = (event) => {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+    setErrors((current) => { const next = { ...current }; delete next[name]; return next; });
+  };
   const fields = [
     { name: 'name', label: 'Your name', placeholder: 'Alex Smith', maxLength: 100, autoComplete: 'name' },
     { name: 'email', label: 'Email address', placeholder: 'alex@example.com', type: 'email', maxLength: 254, autoComplete: 'email' },
@@ -86,6 +102,8 @@ function ContactForm() {
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const menuButton = useRef(null);
+  const navigation = useRef(null);
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('portfolio-theme') === 'dark' ? 'dark' : 'light'; }
     catch { return 'light'; }
@@ -98,7 +116,13 @@ export default function App() {
 
   useEffect(() => {
     if (!menuOpen) return;
-    const onEscape = (event) => { if (event.key === 'Escape') setMenuOpen(false); };
+    navigation.current?.querySelector('a')?.focus();
+    const onEscape = (event) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        menuButton.current?.focus();
+      }
+    };
     window.addEventListener('keydown', onEscape);
     return () => window.removeEventListener('keydown', onEscape);
   }, [menuOpen]);
@@ -107,13 +131,13 @@ export default function App() {
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="site-header">
       <a className="wordmark" href="#home" aria-label="Aakash Garude home"><span className="monogram">ag<span>.</span></span><span className="wordmark-name">AAKASH<br />GARUDE</span></a>
-      <nav id="navigation" className={menuOpen ? 'nav open' : 'nav'} aria-label="Main navigation">
+      <nav ref={navigation} id="navigation" className={menuOpen ? 'nav open' : 'nav'} aria-label="Main navigation">
         {['About', 'Stack', 'Work', 'Contact'].map((label) => <a key={label} href={'#' + label.toLowerCase()} onClick={() => setMenuOpen(false)}>{label}</a>)}
       </nav>
       <div className="header-actions">
         <button className="icon-button theme-toggle" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} aria-label={'Switch to ' + (theme === 'light' ? 'dark' : 'light') + ' theme'}><Icon name={theme === 'light' ? 'moon' : 'sun'} /></button>
         <a className="header-contact" href="#contact">Let’s talk <Icon name="external" /></a>
-        <button className="icon-button menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} aria-controls="navigation"><Icon name={menuOpen ? 'close' : 'menu'} /></button>
+        <button ref={menuButton} className="icon-button menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} aria-controls="navigation"><Icon name={menuOpen ? 'close' : 'menu'} /></button>
       </div>
     </header>
     <main id="main">
@@ -125,7 +149,7 @@ export default function App() {
           <div className="hero-actions"><a className="button primary" href="#work">Explore my work <Icon name="arrow" /></a><a className="text-link" href="#contact">Get in touch <Icon name="external" /></a></div>
           <div className="hero-footnote"><span className="small-cross">✳</span><span>Learning by building.<br /><strong>One thoughtful project at a time.</strong></span></div>
         </div>
-        <div className="hero-visual" aria-label="My development stack: React user interface, ASP.NET Core API and SQL Server database">
+        <div className="hero-visual" role="img" aria-label="My development stack: React user interface, ASP.NET Core API and SQL Server database">
           <div className="visual-grid" />
           <div className="orbit orbit-one" /><div className="orbit orbit-two" />
           <div className="code-window">
@@ -145,8 +169,8 @@ export default function App() {
         <div className="about-content"><h2 id="about-title">Curious by nature.<br /><span className="serif">A builder by choice.</span></h2><div className="about-text"><p>I’m at the beginning of my development journey, building my foundation in C#, ASP.NET Core and React.</p><p>This portfolio is my first project: a place to put what I’m learning into practice, from responsive layouts to APIs, databases and a working contact flow.</p><a className="text-link" href="https://github.com/Aakash-0506" target="_blank" rel="noreferrer">Follow my journey on GitHub <Icon name="external" /></a></div></div>
         <div className="principles"><div><span>01</span><h3>Keep it clear</h3><p>Make interfaces easy to understand.</p></div><div><span>02</span><h3>Build the whole flow</h3><p>Connect the frontend, API and data.</p></div><div><span>03</span><h3>Keep learning</h3><p>Improve through hands-on practice.</p></div></div>
       </section>
-      <section id="stack" className="stack-section section-pad" aria-labelledby="stack-title"><div className="section-shell"><div className="section-label"><span>02 / MY TOOLKIT</span><span>THE TOOLS I’M BUILDING WITH</span></div><div className="section-heading"><h2 id="stack-title">From screen<br /><span className="serif">to server.</span></h2><p>A connected stack for building<br />modern web applications.</p></div><div className="stack-cards">{STACK.map((group) => <article className="stack-card" key={group.title}><span className="stack-symbol">{group.symbol}</span><h3>{group.title}</h3><p>{group.description}</p><div className="tags">{group.items.map((item) => <span key={item}>{item}</span>)}</div></article>)}</div></div></section>
-      <section id="work" className="work section-shell section-pad" aria-labelledby="work-title"><div className="section-label"><span>03 / SELECTED WORK</span><span>MY FIRST PROJECT</span></div><div className="section-heading"><h2 id="work-title">A small beginning.<br /><span className="serif">Built with intention.</span></h2></div><article className="project-card"><div className="project-preview" aria-label="Illustration of this portfolio"><div className="mini-browser"><div className="mini-chrome"><span>● ● ●</span><span>aakash / portfolio</span></div><div className="mini-content"><span className="mini-brand">ag.</span><span className="mini-nav">ABOUT &nbsp; STACK &nbsp; CONTACT</span><div className="mini-heading">Thoughtful code.<br /><em>Useful experiences.</em></div><div className="mini-line" /><div className="mini-line short" /><span className="mini-button">Explore my work ↗</span><div className="mini-orb">{'{ }'}</div></div></div><div className="project-index">PROJECT / 001</div></div><div className="project-copy"><div className="project-category"><span>PERSONAL PROJECT</span><span className="project-dot" /></div><h3>Developer portfolio</h3><p>My personal corner of the web. A responsive React interface connected to an ASP.NET Core API, with contact messages stored in SQL Server and delivered through Gmail.</p><div className="tags"><span>React</span><span>ASP.NET Core</span><span>MSSQL</span></div><div className="project-actions"><button className="text-link" type="button" aria-expanded={detailsOpen} aria-controls="project-details" onClick={() => setDetailsOpen(!detailsOpen)}>{detailsOpen ? 'Hide details' : 'Project details'}<Icon name={detailsOpen ? 'close' : 'arrow'} /></button><a className="text-link" href={REPO} target="_blank" rel="noreferrer">Source code <Icon name="external" /></a></div></div>{detailsOpen && <div id="project-details" className="project-details"><h4>How it fits together</h4><p>React handles the interface and form validation. The ASP.NET Core API validates submissions, applies rate limits and stores each message in SQL Server before attempting a Gmail email notification.</p><ul><li>Responsive layouts, accessible navigation and a light/dark theme.</li><li>Server-side validation, a spam honeypot and per-IP contact limits.</li><li>Honest delivery feedback when an email notification cannot be sent.</li></ul><p className="project-detail-note">Live contact delivery requires the API, SQL Server and private Gmail settings to be configured by the site owner.</p></div>}</article></section>
+      <section id="stack" className="stack-section section-pad" aria-labelledby="stack-title"><div className="section-shell"><div className="section-label"><span>02 / MY TOOLKIT</span><span>THE TOOLS I’M BUILDING WITH</span></div><div className="section-heading"><h2 id="stack-title">From screen<br /><span className="serif">to server.</span></h2><p>A connected stack for building<br />modern web applications.</p></div><div className="stack-cards">{STACK.map((group) => <article className="stack-card" key={group.title}><span className="stack-symbol" aria-hidden="true">{group.symbol}</span><h3>{group.title}</h3><p>{group.description}</p><div className="tags">{group.items.map((item) => <span key={item}>{item}</span>)}</div></article>)}</div></div></section>
+      <section id="work" className="work section-shell section-pad" aria-labelledby="work-title"><div className="section-label"><span>03 / SELECTED WORK</span><span>MY FIRST PROJECT</span></div><div className="section-heading"><h2 id="work-title">A small beginning.<br /><span className="serif">Built with intention.</span></h2></div><article className="project-card"><div className="project-preview" role="img" aria-label="Illustration of this portfolio"><div className="mini-browser"><div className="mini-chrome"><span>● ● ●</span><span>aakash / portfolio</span></div><div className="mini-content"><span className="mini-brand">ag.</span><span className="mini-nav">ABOUT &nbsp; STACK &nbsp; CONTACT</span><div className="mini-heading">Thoughtful code.<br /><em>Useful experiences.</em></div><div className="mini-line" /><div className="mini-line short" /><span className="mini-button">Explore my work ↗</span><div className="mini-orb">{'{ }'}</div></div></div><div className="project-index">PROJECT / 001</div></div><div className="project-copy"><div className="project-category"><span>PERSONAL PROJECT</span><span className="project-dot" /></div><h3>Developer portfolio</h3><p>My personal corner of the web. A responsive React interface connected to an ASP.NET Core API, with contact messages stored in SQL Server and delivered through Gmail.</p><div className="tags"><span>React</span><span>ASP.NET Core</span><span>MSSQL</span></div><div className="project-actions"><button className="text-link" type="button" aria-expanded={detailsOpen} aria-controls="project-details" onClick={() => setDetailsOpen(!detailsOpen)}>{detailsOpen ? 'Hide details' : 'Project details'}<Icon name={detailsOpen ? 'close' : 'arrow'} /></button><a className="text-link" href={REPO} target="_blank" rel="noreferrer">Source code <Icon name="external" /></a></div></div>{detailsOpen && <div id="project-details" className="project-details"><h4>How it fits together</h4><p>React handles the interface and form validation. The ASP.NET Core API validates submissions, applies rate limits and stores each message in SQL Server before attempting a Gmail email notification.</p><ul><li>Responsive layouts, accessible navigation and a light/dark theme.</li><li>Server-side validation, a spam honeypot and per-IP contact limits.</li><li>Honest delivery feedback when an email notification cannot be sent.</li></ul><p className="project-detail-note">Live contact delivery requires the API, SQL Server and private Gmail settings to be configured by the site owner.</p></div>}</article></section>
       <section id="contact" className="contact-section section-pad" aria-labelledby="contact-title"><div className="section-shell"><div className="section-label"><span>04 / GET IN TOUCH</span><span>LET’S START A CONVERSATION</span></div><div className="contact-layout"><div className="contact-copy"><h2 id="contact-title">Have an idea?<br /><span className="serif">Let’s talk.</span></h2><p>A question, an opportunity, or just a hello.<br />I’d love to hear from you.</p><a className="email-link" href={'mailto:' + EMAIL}><Icon name="mail" /><span>{EMAIL}</span><Icon name="external" /></a><a className="text-link github-contact" href="https://github.com/Aakash-0506" target="_blank" rel="noreferrer">Find me on GitHub <Icon name="external" /></a></div><ContactForm /></div></div></section>
     </main>
     <footer className="site-footer section-shell"><a className="monogram" href="#home" aria-label="Back to top">ag<span>.</span></a><p>© {new Date().getFullYear()} Aakash Garude</p><span>Built with curiosity, React & .NET.</span><a className="text-link" href="#home">Back to top <Icon name="external" /></a></footer>

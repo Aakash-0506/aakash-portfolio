@@ -216,31 +216,35 @@ internal sealed class PortfolioFactory : WebApplicationFactory<global::Program>
 
 internal sealed class FakeStore : IContactStore
 {
+    private int calls;
     public bool Fail { get; set; }
-    public int Calls { get; private set; }
+    public int Calls => Volatile.Read(ref calls);
     public Guid Id { get; } = Guid.NewGuid();
     public ContactRequest? SavedRequest { get; private set; }
+    public Func<CancellationToken, Task>? BeforeSave { get; set; }
 
-    public Task<Guid> SaveAsync(ContactRequest request, CancellationToken cancellationToken)
+    public async Task<Guid> SaveAsync(ContactRequest request, CancellationToken cancellationToken)
     {
-        Calls++;
+        Interlocked.Increment(ref calls);
         if (Fail) throw new InvalidOperationException("Storage unavailable in test.");
+        if (BeforeSave is { } beforeSave) await beforeSave(cancellationToken);
         SavedRequest = request;
-        return Task.FromResult(Id);
+        return Id;
     }
 }
 
 internal sealed class FakeMailer(FakeStore store) : IContactMailer
 {
     public bool Fail { get; set; }
-    public int Calls { get; private set; }
+    private int calls;
+    public int Calls => Volatile.Read(ref calls);
     public bool StorageCompletedBeforeSend { get; private set; }
     public Guid MessageId { get; private set; }
     public ContactRequest? SentRequest { get; private set; }
 
     public Task SendAsync(ContactRequest request, Guid messageId, CancellationToken cancellationToken)
     {
-        Calls++;
+        Interlocked.Increment(ref calls);
         StorageCompletedBeforeSend = store.SavedRequest is not null;
         MessageId = messageId;
         SentRequest = request;

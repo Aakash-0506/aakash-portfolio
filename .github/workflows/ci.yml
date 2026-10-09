@@ -1,4 +1,4 @@
-name: Build and test
+name: Build, security and browser tests
 
 on:
   push:
@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,9 +20,33 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Build frontend, test contact behavior, and publish backend
+      - name: Build frontend, run API tests and audit NuGet packages
         run: node scripts/build.mjs
+      - name: Audit frontend dependencies
+        working-directory: client
+        run: npm audit --audit-level=low
+      - name: Install browser engines
+        working-directory: client
+        run: npx playwright install --with-deps chromium firefox
+      - name: Test desktop, mobile, accessibility and contact flows
+        working-directory: client
+        run: npm run test:e2e
+      - name: Visual QA samples
+        if: always()
+        run: node scripts/print-screenshots.mjs
+      - name: Capture dependency lockfile for review
+        if: always()
+        run: |
+          node -e "const fs = require('fs'); if(fs.existsSync('client/package-lock.json')) { console.log('LOCKFILE_JSON_START'); console.log(fs.readFileSync('client/package-lock.json','utf8')); console.log('LOCKFILE_JSON_END'); }"
       - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-report
+          path: |
+            client/playwright-report/
+            client/test-results/
+      - uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: aakash-portfolio
           path: artifacts/

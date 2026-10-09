@@ -7,6 +7,7 @@ RUN npm run build
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
+COPY Directory.Build.props ./
 COPY server/Portfolio.Api/Portfolio.Api.csproj server/Portfolio.Api/
 RUN dotnet restore server/Portfolio.Api/Portfolio.Api.csproj
 COPY server/Portfolio.Api/ server/Portfolio.Api/

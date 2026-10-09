@@ -29,7 +29,7 @@ test('stored messages without email delivery have a pending status', async () =>
     ok: true, status: 202, json: async () => ({ saved: true, emailSent: false }),
   }));
   assert.equal(result.kind, 'pending');
-  assert.match(result.text, /not sent/);
+  assert.match(result.text, /could not be confirmed/);
 });
 
 test('rate limits, storage failures and malformed responses never report success', async () => {
@@ -48,4 +48,25 @@ test('a disconnected API rejects the submission', async () => {
   await assert.rejects(() => sendContact(valid, async () => {
     throw new TypeError('Network unavailable');
   }), /Network unavailable/);
+});
+
+test('control characters in names and subjects are rejected consistently', () => {
+  assert.ok(validateContact({ ...valid, name: 'Alex\tSmith' }).name);
+  assert.ok(validateContact({ ...valid, subject: 'Hello\u007fAakash' }).subject);
+});
+
+test('truthy strings and contradictory delivery statuses never report success', async () => {
+  for (const data of [
+    { saved: 'false', emailSent: 'false' },
+    { saved: true, emailSent: 'true' },
+    { saved: true, emailSent: false },
+  ]) {
+    await assert.rejects(() => sendContact(valid, async () => ({ status: 200, json: async () => data })), /could not be submitted/);
+  }
+});
+
+test('server validation errors preserve field details', async () => {
+  await assert.rejects(() => sendContact(valid, async () => ({
+    status: 400, json: async () => ({ errors: { subject: ['Please change your subject.'] } }),
+  })), error => error.fieldErrors.subject === 'Please change your subject.');
 });

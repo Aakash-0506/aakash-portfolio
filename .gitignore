@@ -27,3 +27,7 @@ TestResults/
 *.suo
 .DS_Store
 Thumbs.db
+
+# Browser test output
+client/test-results/
+client/playwright-report/

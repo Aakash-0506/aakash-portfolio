@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Data.SqlClient;
 using MimeKit;
 
@@ -13,6 +14,23 @@ builder.Services.AddSingleton<IContactStore, SqlContactStore>();
 builder.Services.AddSingleton<IContactMailer, GmailContactMailer>();
 builder.Services.AddRateLimiter(options =>
 {
+    // Acquire bounded global limits before creating an IP-specific limiter.
+    options.GlobalLimiter = PartitionedRateLimiter.CreateChained<HttpContext>(
+        PartitionedRateLimiter.Create<HttpContext, string>(context =>
+            IsContact(context)
+                ? RateLimitPartition.GetFixedWindowLimiter("contact-budget", _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 30, Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0, AutoReplenishment = true
+                })
+                : RateLimitPartition.GetNoLimiter("other")),
+        PartitionedRateLimiter.Create<HttpContext, string>(context =>
+            IsContact(context)
+                ? RateLimitPartition.GetConcurrencyLimiter("contact-concurrency", _ => new ConcurrencyLimiterOptions
+                {
+                    PermitLimit = 4, QueueLimit = 0
+                })
+                : RateLimitPartition.GetNoLimiter("other")));
     options.AddPolicy("contact", context =>
         RateLimitPartition.GetFixedWindowLimiter(
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -35,14 +53,31 @@ builder.Services.AddRateLimiter(options =>
 var app = builder.Build();
 app.UseExceptionHandler(error => error.Run(async context =>
 {
-    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-    await context.Response.WriteAsJsonAsync(
-        new ContactResponse(false, false, "Something went wrong. Please try again later."));
+    var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+    var status = exception is BadHttpRequestException badRequest
+        ? badRequest.StatusCode : StatusCodes.Status500InternalServerError;
+    context.Response.StatusCode = status;
+    await context.Response.WriteAsJsonAsync(new ContactResponse(false, false,
+        status < 500 ? "The request body or content type is invalid."
+            : "Something went wrong. Please try again later."));
 }));
+app.UseStatusCodePages(async status =>
+{
+    if (status.HttpContext.Request.Path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+        await status.HttpContext.Response.WriteAsJsonAsync(new ContactResponse(false, false,
+            "The request could not be accepted. Please check its address and form data."));
+});
+if (!app.Environment.IsDevelopment()) app.UseHsts();
 app.Use(async (context, next) =>
 {
     context.Response.Headers.XContentTypeOptions = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers.XFrameOptions = "DENY";
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    context.Response.Headers.ContentSecurityPolicy =
+        "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; " +
+        "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; " +
+        "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
     await next();
 });
 var hasFrontend = File.Exists(Path.Combine(app.Environment.ContentRootPath, "wwwroot", "index.html"));
@@ -58,6 +93,9 @@ app.MapPost("/api/contact", ContactEndpoint.HandleAsync).RequireRateLimiting("co
 app.Map("/api/{**path}", () => Results.NotFound());
 if (hasFrontend) app.MapFallbackToFile("index.html");
 app.Run();
+
+static bool IsContact(HttpContext context) =>
+    context.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName == "contact";
 
 public sealed class ContactRequest
 {
@@ -135,7 +173,7 @@ public static class ContactEndpoint
             logger.LogError(exception, "Message {MessageId} was saved, but email delivery failed.", id);
             return Results.Json(
                 new ContactResponse(true, false,
-                    "Your message was saved, but email could not be sent. Please email aakashgarude@gmail.com directly."),
+                    "Your message was saved, but email delivery could not be confirmed. Please email aakashgarude@gmail.com directly."),
                 statusCode: StatusCodes.Status202Accepted);
         }
     }
