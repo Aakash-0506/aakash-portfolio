@@ -13,7 +13,7 @@ function run(command, args, cwd = root) {
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-run(npm, ['install', '--no-audit', '--no-fund'], path.join(root, 'client'));
+run(npm, ['ci', '--no-audit', '--no-fund'], path.join(root, 'client'));
 run(npm, ['test'], path.join(root, 'client'));
 run(npm, ['run', 'build'], path.join(root, 'client'));
 run('dotnet', ['test', 'server/Portfolio.Api.Tests/Portfolio.Api.Tests.csproj', '--configuration', 'Release']);

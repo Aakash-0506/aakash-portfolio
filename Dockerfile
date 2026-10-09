@@ -1,7 +1,7 @@
 FROM node:24-alpine AS frontend
 WORKDIR /src/client
 COPY client/package*.json ./
-RUN npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 COPY client/ ./
 RUN npm run build
 

@@ -107,7 +107,7 @@ test('valid contact request is trimmed, sent once and clears only after success'
   await expect(page.getByRole('button', { name: 'Sending…' })).toBeDisabled();
   await expect(page.getByLabel('Email address', { exact: true })).toBeDisabled();
   await page.locator('form').evaluate(form => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
-  expect(posts).toBe(1);
+  await expect.poll(() => posts).toBe(1);
   release();
   await expect(page.locator('.form-status.success')).toContainText('Message sent');
   expect(payload.name).toBe('Alex Smith');
@@ -166,4 +166,16 @@ test('HTML-like input is treated as text and the real unconfigured API fails saf
   await expect(page.locator('.form-status.error')).toContainText('could not be submitted');
   await expect(page.locator('input#name')).toHaveValue('<img src=x onerror=alert(1)>');
   await expect(page.locator('img[src="x"]')).toHaveCount(0);
+});
+
+test('real server rejects oversized JSON without exposing exception details', async ({ request }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-chromium', 'One Kestrel body-limit probe avoids consuming the shared visitor rate budget.');
+  const response = await request.post('/api/contact', {
+    headers: { 'Content-Type': 'application/json' },
+    data: JSON.stringify({ name: 'Alex Smith', email: 'alex@example.com', subject: 'Body limit test', message: 'x'.repeat(50000) }),
+  });
+  expect(response.status()).toBe(413);
+  const body = await response.text();
+  expect(body).not.toContain('StackTrace');
+  expect(body).not.toContain('System.');
 });

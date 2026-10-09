@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -138,6 +139,8 @@ public sealed class SecurityApiTests
         return await factory.Server.SendAsync(context =>
         {
             context.Connection.RemoteIpAddress = IPAddress.Parse(address);
+            context.Features.Set<IHttpRequestBodyDetectionFeature>(new TestRequestBodyFeature());
+            context.Request.Protocol = "HTTP/1.1";
             context.Request.Method = HttpMethods.Post;
             context.Request.Path = "/api/contact";
             context.Request.ContentType = "application/json";
@@ -145,4 +148,9 @@ public sealed class SecurityApiTests
             context.Request.Body = body;
         }, timeout.Token);
     }
+}
+
+internal sealed class TestRequestBodyFeature : IHttpRequestBodyDetectionFeature
+{
+    public bool CanHaveBody => true;
 }

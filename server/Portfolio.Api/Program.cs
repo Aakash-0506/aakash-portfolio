@@ -10,6 +10,7 @@ using MimeKit;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.ConfigureKestrel(o => o.Limits.MaxRequestBodySize = 32 * 1024);
+builder.Services.Configure<RouteOptions>(options => options.ConstraintMap["nonapi"] = typeof(NonApiRouteConstraint));
 builder.Services.AddSingleton<IContactStore, SqlContactStore>();
 builder.Services.AddSingleton<IContactMailer, GmailContactMailer>();
 builder.Services.AddRateLimiter(options =>
@@ -90,8 +91,7 @@ app.UseRouting();
 app.UseRateLimiter();
 app.MapGet("/api/health", () => Results.Ok(new { status = "running" }));
 app.MapPost("/api/contact", ContactEndpoint.HandleAsync).RequireRateLimiting("contact");
-app.Map("/api/{**path}", () => Results.NotFound());
-if (hasFrontend) app.MapFallbackToFile("index.html");
+if (hasFrontend) app.MapFallbackToFile("/{**path:nonfile:nonapi}", "index.html");
 app.Run();
 
 static bool IsContact(HttpContext context) =>
@@ -252,3 +252,13 @@ public sealed class GmailContactMailer(IConfiguration configuration) : IContactM
 }
 
 public partial class Program { }
+
+public sealed class NonApiRouteConstraint : IRouteConstraint
+{
+    public bool Match(HttpContext? httpContext, IRouter? route, string routeKey,
+        RouteValueDictionary values, RouteDirection routeDirection)
+    {
+        var path = new PathString("/" + Convert.ToString(values[routeKey]));
+        return !path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase);
+    }
+}
