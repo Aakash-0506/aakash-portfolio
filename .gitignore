@@ -1,0 +1,29 @@
+# Dependencies and builds
+**/node_modules/
+**/bin/
+**/obj/
+server/Portfolio.Api/wwwroot/
+artifacts/
+dist/
+coverage/
+TestResults/
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+**/appsettings.Local.json
+**/appsettings.Production.json
+**/secrets.json
+*.pfx
+*.p12
+*.key
+
+# Editor and OS files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+.DS_Store
+Thumbs.db

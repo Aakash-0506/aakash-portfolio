@@ -1,0 +1,13 @@
+.git
+**/node_modules
+**/bin
+**/obj
+server/Portfolio.Api/wwwroot
+.env
+.env.*
+**/secrets.json
+**/appsettings.Local.json
+**/appsettings.Production.json
+artifacts
+work
+outputs
