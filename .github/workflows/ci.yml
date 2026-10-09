@@ -31,13 +31,6 @@ jobs:
       - name: Test desktop, mobile, accessibility and contact flows
         working-directory: client
         run: npm run test:e2e
-      - name: Visual QA samples
-        if: always()
-        run: node scripts/print-screenshots.mjs
-      - name: Capture dependency lockfile for review
-        if: always()
-        run: |
-          node -e "const fs = require('fs'); if(fs.existsSync('client/package-lock.json')) { console.log('LOCKFILE_JSON_START'); console.log(fs.readFileSync('client/package-lock.json','utf8')); console.log('LOCKFILE_JSON_END'); }"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
