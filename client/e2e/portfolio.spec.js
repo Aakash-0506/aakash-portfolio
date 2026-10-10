@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 test('layout fits desktop and 320px screens; links and headings are usable', async ({ page }, testInfo) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Thoughtful code');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Hi, I’m Aakash');
   await expect(page.getByRole('link', { name: 'aakashgarude@gmail.com', exact: true })).toHaveAttribute('href', 'mailto:aakashgarude@gmail.com');
   const originalViewport = page.viewportSize();
   for (const width of [320, 390, 768, 1440]) {
@@ -76,13 +76,21 @@ test('theme still works when browser storage is blocked', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
 
-test('project details can be expanded and collapsed', async ({ page }) => {
+test('project details can be expanded and collapsed', async ({ page }, testInfo) => {
   const button = page.getByRole('button', { name: 'Project details' });
   await button.click();
   await expect(page.getByRole('button', { name: 'Hide details' })).toHaveAttribute('aria-expanded', 'true');
   await expect(page.getByRole('heading', { name: 'How it fits together' })).toBeVisible();
+  const expanded = await new AxeBuilder({ page }).include('#work').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  expect(expanded.violations, JSON.stringify(expanded.violations)).toEqual([]);
+  if (testInfo.project.name !== 'desktop-firefox') {
+    await page.locator('#work').screenshot({ path: testInfo.outputPath('work-expanded.jpg'), type: 'jpeg', quality: 65 });
+  }
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click();
+  const darkExpanded = await new AxeBuilder({ page }).include('#work').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  expect(darkExpanded.violations, JSON.stringify(darkExpanded.violations)).toEqual([]);
   await page.getByRole('button', { name: 'Hide details' }).click();
-  await expect(page.locator('#project-details')).toHaveCount(0);
+  await expect(page.locator('#project-details')).toBeHidden();
 });
 
 test('invalid contact input shows field errors, focuses name and sends no request', async ({ page }) => {
