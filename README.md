@@ -1,8 +1,8 @@
 # Aakash Garude — Developer Portfolio
 
-A first personal portfolio built with React and ASP.NET Core. It introduces Aakash, presents his technology stack and portfolio project, and provides a contact form addressed to **aakashgarude@gmail.com**.
+A personal portfolio built with React and ASP.NET Core. It introduces Aakash, presents his technology stack and portfolio project, and provides a contact form addressed to **aakashgarude@gmail.com**.
 
-The design uses a warm light theme, a dark theme, responsive layouts and accessible form feedback. It does not claim employment history or list invented projects.
+The design uses a warm light theme, a dark theme, responsive layouts and accessible form feedback. A personal introduction, practical skill summaries and an expandable three-step project walkthrough explain Aakash’s current learning and the application he built. It does not claim employment history or list invented projects.
 
 ## Stack
 

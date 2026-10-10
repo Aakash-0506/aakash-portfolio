@@ -31,9 +31,6 @@ jobs:
       - name: Test desktop, mobile, accessibility and contact flows
         working-directory: client
         run: npm run test:e2e
-      - name: Review design previews
-        if: always()
-        run: node scripts/print-design-previews.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
